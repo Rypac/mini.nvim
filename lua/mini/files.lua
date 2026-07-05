@@ -2834,7 +2834,7 @@ H.lsp_fs_hook = function(method, diffs, lsp_timeout)
   -- https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#createFilesParams
   -- https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#deleteFilesParams
   -- https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#renameFilesParams
-  local files, to_uri = {}, vim.uri_from_fname
+  local files, to_uri = {}, H.fname_to_uri
   local needs_check = method == 'willCreate' or method == 'willRename'
   local is_create, is_delete, is_rename =
     vim.endswith(method, 'Create'), vim.endswith(method, 'Delete'), vim.endswith(method, 'Rename')
@@ -3026,9 +3026,13 @@ H.adjust_after_move = function(from, to, fs_actions, start_ind)
 end
 
 H.uri_to_fname = vim.uri_to_fname
+H.fname_to_uri = vim.uri_from_fname
 if H.is_windows then
   -- On Windows `uri_to_fname` forces `\`, but forcing `/` seems more robust
   H.uri_to_fname = function(x) return (vim.uri_to_fname(x):gsub('\\', '/')) end
+  -- On Windows paths like `C://...` have issues with glob matching and some
+  -- LSP implementations. Force `C:/` instead.
+  H.fname_to_uri = function(x) return vim.uri_from_fname((x:gsub('^(%a)://([^/])', '%1:/%2'))) end
 end
 
 -- Validators -----------------------------------------------------------------

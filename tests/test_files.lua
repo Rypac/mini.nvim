@@ -5998,6 +5998,11 @@ local validate_lsp_will = function(method, files, lines)
   child.lua('_G.lsp_requests = {}')
 end
 
+local make_test_lsp_uri = function(...) return vim.uri_from_fname(make_test_path(...)) end
+if helpers.is_windows() then
+  make_test_lsp_uri = function(...) return vim.uri_from_fname((make_test_path(...):gsub('^(%a)://([^/])', '%1:/%2'))) end
+end
+
 T['LSP']['works with `willCreateFiles`'] = function()
   child.lua([[
     local edit_range = { start = { line = 0, character = 0 }, ['end'] = { line = 0, character = 0 } }
@@ -6014,7 +6019,7 @@ T['LSP']['works with `willCreateFiles`'] = function()
   mock_confirm(1)
   synchronize()
   close()
-  local uri = vim.uri_from_fname(make_test_path('temp', file_name))
+  local uri = make_test_lsp_uri('temp', file_name)
   validate_lsp_will('workspace/willCreateFiles', { { uri = uri } }, { '-- willCreate', "require('something')" })
 end
 
@@ -6034,8 +6039,8 @@ T['LSP']['works with `willRenameFiles`'] = function()
   mock_confirm(1)
   synchronize()
   close()
-  local old_uri = vim.uri_from_fname(make_test_path('temp', file_name))
-  local new_uri = vim.uri_from_fname(make_test_path('temp', 'something_else.lua'))
+  local old_uri = make_test_lsp_uri('temp', file_name)
+  local new_uri = make_test_lsp_uri('temp', 'something_else.lua')
   local ref_files = { { oldUri = old_uri, newUri = new_uri } }
   validate_lsp_will('workspace/willRenameFiles', ref_files, { "require('something_else')" })
 end
@@ -6056,7 +6061,7 @@ T['LSP']['works with `willDeleteFiles`'] = function()
   mock_confirm(1)
   synchronize()
   close()
-  local uri = vim.uri_from_fname(make_test_path('temp', file_name))
+  local uri = make_test_lsp_uri('temp', file_name)
   validate_lsp_will('workspace/willDeleteFiles', { { uri = uri } }, { '-- willDelete', "require('something')" })
 end
 
@@ -6077,7 +6082,7 @@ T['LSP']['works with `didCreateFiles`'] = function()
   synchronize()
   close()
 
-  local uri = vim.uri_from_fname(make_test_path('temp', file_name))
+  local uri = make_test_lsp_uri('temp', file_name)
   validate_lsp_did('workspace/didCreateFiles', { { uri = uri } })
 end
 
@@ -6092,8 +6097,8 @@ T['LSP']['works with `didRenameFiles`'] = function()
   synchronize()
   close()
 
-  local old_uri = vim.uri_from_fname(make_test_path('temp', file_name))
-  local new_uri = vim.uri_from_fname(make_test_path('temp', 'something_else.lua'))
+  local old_uri = make_test_lsp_uri('temp', file_name)
+  local new_uri = make_test_lsp_uri('temp', 'something_else.lua')
   validate_lsp_did('workspace/didRenameFiles', { { oldUri = old_uri, newUri = new_uri } })
 end
 
@@ -6117,8 +6122,8 @@ T['LSP']['works with `didRenameFiles` that applies workspace edit'] = function()
   synchronize()
   close()
 
-  local old_uri = vim.uri_from_fname(make_test_path('temp', file_name))
-  local new_uri = vim.uri_from_fname(make_test_path('temp', 'something_else.lua'))
+  local old_uri = make_test_lsp_uri('temp', file_name)
+  local new_uri = make_test_lsp_uri('temp', 'something_else.lua')
   local ref_files = { { oldUri = old_uri, newUri = new_uri } }
   validate_lsp_did('workspace/didRenameFiles', ref_files, { "require('something_else')" })
 end
@@ -6151,8 +6156,8 @@ T['LSP']['works with `didRenameFiles` that applies workspace edit after confirma
   synchronize()
   close()
 
-  local old_uri = vim.uri_from_fname(make_test_path('temp', file_name))
-  local new_uri = vim.uri_from_fname(make_test_path('temp', 'something_else.lua'))
+  local old_uri = make_test_lsp_uri('temp', file_name)
+  local new_uri = make_test_lsp_uri('temp', 'something_else.lua')
   local ref_files = { { oldUri = old_uri, newUri = new_uri } }
   validate_lsp_did('workspace/didRenameFiles', ref_files, { "require('something_else')" })
 end
@@ -6168,7 +6173,7 @@ T['LSP']['works with `didDeleteFiles`'] = function()
   synchronize()
   close()
 
-  local uri = vim.uri_from_fname(make_test_path('temp', file_name))
+  local uri = make_test_lsp_uri('temp', file_name)
   validate_lsp_did('workspace/didDeleteFiles', { { uri = uri } })
 end
 
@@ -6194,8 +6199,7 @@ T['LSP']['works with filters'] = function()
     synchronize()
     close()
 
-    local new_file_path = make_test_path('temp', file_name)
-    local new_file_uri = vim.uri_from_fname(new_file_path)
+    local new_file_uri = make_test_lsp_uri('temp', file_name)
     if file_name:match('/$') then new_file_uri = new_file_uri .. '/' end
     local files = should_match and { { uri = new_file_uri } } or {}
 
@@ -6223,9 +6227,7 @@ T['LSP']['correctly identifies "folder" type for filters'] = function()
   ]])
   setup_lsp()
   local temp_dir = make_temp_dir('temp', {})
-  local make_test_uri = function(name)
-    return vim.uri_from_fname(make_test_path('temp', name)) .. (vim.endswith(name, '/') and '/' or '')
-  end
+  local make_test_uri = function(name) return make_test_lsp_uri('temp', name) .. (vim.endswith(name, '/') and '/' or '') end
 
   local validate = function(method, files)
     local ref_lsp_requests = { { 'workspace/will' .. method .. 'Files', { files = files } } }
@@ -6281,8 +6283,8 @@ T['LSP']['works with multiple language servers'] = function()
   synchronize()
   close()
 
-  local old_uri = vim.uri_from_fname(make_test_path('temp', file_name))
-  local new_uri = vim.uri_from_fname(make_test_path('temp', 'something_else.lua'))
+  local old_uri = make_test_lsp_uri('temp', file_name)
+  local new_uri = make_test_lsp_uri('temp', 'something_else.lua')
   local params = { files = { { oldUri = old_uri, newUri = new_uri } } }
 
   eq(child.lua_get('_G.lsp_requests["file-methods-lsp"]'), { { 'workspace/willRenameFiles', params } })
