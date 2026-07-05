@@ -6217,6 +6217,47 @@ T['LSP']['works with filters'] = function()
   end
 end
 
+T['LSP']['correctly identifies "folder" type for filters'] = function()
+  child.lua([[
+    _G.filter_configs = { filters = { { pattern = { matches = 'folder', glob = '**' }, scheme = 'file' } } }
+  ]])
+  setup_lsp()
+  local temp_dir = make_temp_dir('temp', {})
+  local make_test_uri = function(name)
+    return vim.uri_from_fname(make_test_path('temp', name)) .. (vim.endswith(name, '/') and '/' or '')
+  end
+
+  local validate = function(method, files)
+    local ref_lsp_requests = { { 'workspace/will' .. method .. 'Files', { files = files } } }
+    eq(child.lua_get('_G.lsp_requests["file-methods-lsp"]'), ref_lsp_requests)
+
+    local ref_lsp_notifications = { { 'workspace/did' .. method .. 'Files', { files = files } } }
+    eq(child.lua_get('_G.lsp_notifications["file-methods-lsp"]'), ref_lsp_notifications)
+
+    child.lua('_G.lsp_requests, _G.lsp_notifications = {}, {}')
+  end
+
+  open(temp_dir)
+
+  -- Create
+  type_keys('o', 'aaa/', '<Esc>')
+  mock_confirm(1)
+  synchronize()
+  validate('Create', { { uri = make_test_uri('aaa/') } })
+
+  -- Rename
+  type_keys('C', 'bbb', '<Esc>')
+  mock_confirm(1)
+  synchronize()
+  validate('Rename', { { oldUri = make_test_uri('aaa'), newUri = make_test_uri('bbb') } })
+
+  -- Delete
+  type_keys('dd')
+  mock_confirm(1)
+  synchronize()
+  validate('Delete', { { uri = make_test_uri('bbb') } })
+end
+
 T['LSP']['works with multiple language servers'] = function()
   setup_lsp()
 
