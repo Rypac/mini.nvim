@@ -2868,12 +2868,10 @@ H.lsp_fs_hook_client = function(client, full_method, lsp_files, timeout)
   local is_fs_type = function(lsp_file, ref_fs_type) return ref_fs_type == nil or ref_fs_type == lsp_file.fs_type end
   local make_filter = function(scheme, ref_fs_type, glob, ignore_case)
     local adjust_case = ignore_case and vim.fn.tolower or function(x) return x end
-    -- On Windows `uri_to_fname` forces `\`, but forcing / seems more robust
-    local to_fname = H.is_windows and function(x) return (vim.uri_to_fname(x):gsub('\\', '/')) end or vim.uri_to_fname
     local glob_lpeg = vim.glob.to_lpeg(adjust_case(glob) or '**')
     return function(lsp_file)
       local uri = lsp_file.uri or lsp_file.oldUri
-      local fname = adjust_case(to_fname(uri))
+      local fname = adjust_case(H.uri_to_fname(uri))
       return is_scheme(uri, scheme) and is_fs_type(lsp_file, ref_fs_type) and glob_lpeg:match(fname) ~= nil
     end
   end
@@ -3025,6 +3023,12 @@ H.adjust_after_move = function(from, to, fs_actions, start_ind)
     -- Adjust only parent directory to correctly compute target
     if diff.to ~= nil then diff.to = diff.to:gsub(from_dir_pattern, to_dir) end
   end
+end
+
+H.uri_to_fname = vim.uri_to_fname
+if H.is_windows then
+  -- On Windows `uri_to_fname` forces `\`, but forcing `/` seems more robust
+  H.uri_to_fname = function(x) return (vim.uri_to_fname(x):gsub('\\', '/')) end
 end
 
 -- Validators -----------------------------------------------------------------
